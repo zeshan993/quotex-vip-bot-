@@ -7,10 +7,11 @@ app = Flask(__name__)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 VIP_LINK = os.getenv("VIP_CHANNEL_LINK")
 
+# Server start hotay hi automatic Telegram webhook set ho jayega
 if BOT_TOKEN:
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url=https://quotex-vip-bot-bddd.onrender.com/telegram-webhook")
 
-# Verified depositors ki list jahan Quotex postback se data save hoga
+# Verified depositors ki dictionary
 verified_deposits = {}
 
 @app.route('/postback', methods=['GET', 'POST'])
@@ -21,9 +22,11 @@ def postback():
     if not trader_id:
         return jsonify({"status": "error", "message": "trader_id missing"}), 400
 
-    trader_id = str(trader_id).replace('{', '').replace('}', '').strip()
-    deposit_str = str(deposit_str).replace('{', '').replace('}', '').replace('$', '').strip()
+    # Brackets aur URL encoded characters (%7B, %7D) saaf karna
+    trader_id = str(trader_id).replace('%7B', '').replace('%7D', '').replace('{', '').replace('}', '').strip()
+    deposit_str = str(deposit_str).replace('%7B', '').replace('%7D', '').replace('{', '').replace('}', '').replace('$', '').strip()
 
+    # Agar placeholder aa jaye toh ignore karo
     if trader_id.lower() in ['trader_id', 'id', 'none', '']:
         return jsonify({"status": "ignored", "message": "placeholder received"}), 200
 
@@ -32,7 +35,7 @@ def postback():
     except ValueError:
         deposit_amount = 0.0
 
-    # Sirf wahi IDs save hongi jinka deposit $20 ya us se zyada hoga
+    # Sirf $20 ya us se zyada deposit wali IDs save hongi
     if deposit_amount >= 20:
         verified_deposits[trader_id] = deposit_amount
 
@@ -50,25 +53,23 @@ def telegram_webhook():
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-    # Step 1: Jab user /start kare
+    # Step 1: Start command par welcome message aur Trader ID mangna
     if text.startswith('/start'):
         welcome_msg = (
-            "👋 **Welcome!**\n\n"
+            "👋 **Welcome to Zeeshan Q Text Trader VIP Bot!**\n\n"
             "Please **Send your trader ID** (e.g. 93056154):"
         )
         requests.post(url, json={"chat_id": chat_id, "text": welcome_msg, "parse_mode": "Markdown"})
     else:
-        # Step 2: Jab user apni Trader ID bhejey
-        trader_id = text.replace('{', '').replace('}', '').strip()
+        # Step 2: User ki bheji hui ID check karna
+        trader_id = text.replace('%7B', '').replace('%7D', '').replace('{', '').replace('}', '').strip()
 
-        # Check karo ke kya yeh ID verified deposits ki list mein maujood hai?
         if trader_id in verified_deposits:
             reply_msg = (
                 f"✅ **Verified!**\n\n"
                 f"Aapka VIP Channel Link yeh raha:\n{VIP_LINK}"
             )
         else:
-            # Agar ID galat ho ya deposit na ho
             reply_msg = (
                 f"❌ **Aapka trader ID wrong hai** ya aapka minimum deposit complete nahi hai!"
             )
