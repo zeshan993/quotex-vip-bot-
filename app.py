@@ -7,7 +7,11 @@ app = Flask(__name__)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 VIP_LINK = os.getenv("VIP_CHANNEL_LINK")
 
-# Ek temporary memory jisme verified depositors save honge
+# Server start hotay hi automatic Telegram webhook set ho jayega
+if BOT_TOKEN:
+    requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url=https://quotex-vip-bot-bddd.onrender.com/telegram-webhook")
+
+# Temporary memory verified deposits ke liye
 verified_deposits = {}
 
 @app.route('/postback', methods=['GET', 'POST'])
@@ -23,9 +27,7 @@ def postback():
     except ValueError:
         deposit_amount = 0.0
 
-    # Trader ID ke against deposit amount save karlo
     verified_deposits[str(trader_id).strip()] = deposit_amount
-    
     return jsonify({"status": "success"}), 200
 
 @app.route('/telegram-webhook', methods=['POST'])
@@ -47,7 +49,6 @@ def telegram_webhook():
         )
         requests.post(url, json={"chat_id": chat_id, "text": welcome_msg, "parse_mode": "Markdown"})
     else:
-        # User ne jo text bheja hai usay Trader ID maankar check karo
         trader_id = text
         deposit = verified_deposits.get(trader_id, 0.0)
 
